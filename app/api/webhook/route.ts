@@ -52,7 +52,15 @@ interface LinqReactionPayload {
       | 'sticker';
     custom_emoji: string | null;
     is_from_me: boolean;
-    from_handle: { handle: string };
+    from_handle: {
+      id: string;
+      handle: string;
+      is_me: boolean;
+      service: string;
+      joined_at: string;
+      status: 'active' | 'left' | 'removed';
+      left_at: string | null;
+    };
     from?: string;
   };
 }
@@ -111,7 +119,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true });
   }
 
-  const eventId = payload.event_id;
+  const eventId = req.headers.get('webhook-id') ?? payload.event_id;
   const phoneNumber = payload.data.sender_handle.handle;
   const chatId = payload.data.chat.id;
   const text = extractTextFromParts(payload.data.parts);
