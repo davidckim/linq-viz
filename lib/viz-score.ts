@@ -14,22 +14,15 @@ export interface VizScore {
   estVisibilityFt: string; // rough estimate like "5-10ft" or "20-30ft"
 }
 
-// rough visibility ranges based on score - these come from personal experience
-// and talking to other divers in SoCal, not a scientific formula
-const VIZ_RANGES: Record<string, string> = {
-  '1-2': '0-5ft',
-  '3-4': '5-10ft',
-  '5-6': '10-20ft',
-  '7-8': '20-30ft',
-  '9-10': '30ft+',
-};
-
-function getVisibilityRange(score: number): string {
-  if (score <= 2) return VIZ_RANGES['1-2'];
-  if (score <= 4) return VIZ_RANGES['3-4'];
-  if (score <= 6) return VIZ_RANGES['5-6'];
-  if (score <= 8) return VIZ_RANGES['7-8'];
-  return VIZ_RANGES['9-10'];
+// visibility is driven by swell and runoff — the two things that actually
+// murk up the water. wind and tide affect trip quality but not viz directly.
+function estimateVisibility(swellFt: number, runoffStatus: string): string {
+  if (runoffStatus === 'high') return '0-5ft';
+  if (swellFt >= 5) return '0-5ft';
+  if (swellFt >= 3 || runoffStatus === 'elevated') return '5-10ft';
+  if (swellFt >= 2) return '10-20ft';
+  if (swellFt >= 1) return '20-30ft';
+  return '30ft+';
 }
 
 function getLabel(score: number): string {
@@ -128,7 +121,7 @@ export function computeVizScore(conditions: ConditionsData): VizScore {
   score = Math.max(1, score);
 
   const label = getLabel(score);
-  const estVisibilityFt = getVisibilityRange(score);
+  const estVisibilityFt = estimateVisibility(swellFt, runoff.status);
 
   const verdict = score >= 8
     ? `${label} (${score}/10) — worth the trip. Est. viz ${estVisibilityFt}.`

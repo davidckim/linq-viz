@@ -51,10 +51,23 @@ async function geocodeLocation(location: string) {
   return object;
 }
 
-// parse a natural language date like "this Saturday" into a JS Date
+// get today's date in Pacific time (Vercel runs UTC — without this,
+// "tomorrow" after 5pm Pacific would resolve to the wrong day)
+function getTodayPacific(): Date {
+  const pacificStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles' });
+  return new Date(pacificStr);
+}
+
+// parse a natural language date like "this Saturday" or "tomorrow" into a JS Date
 function parseTargetDate(dateStr: string): Date {
   const lower = dateStr.toLowerCase();
-  const today = new Date();
+  const today = getTodayPacific();
+
+  if (lower.includes('tomorrow')) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 1);
+    return d;
+  }
 
   const dayNames = [
     "sunday",
@@ -153,7 +166,7 @@ For regulation questions or general diving questions, set type to "question" and
     const targetDate = intent.date
       ? parseTargetDate(intent.date)
       : (() => {
-          const d = new Date();
+          const d = getTodayPacific();
           d.setDate(d.getDate() + 1);
           return d;
         })();
@@ -171,45 +184,40 @@ For regulation questions or general diving questions, set type to "question" and
       day: "numeric",
     });
 
+    const fmt = (h: number) => `${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}`;
+
     const bestWindow = (() => {
       const low = conditions.tides.nextLow;
-      if (!low) return "dawn–9am";
+      if (!low) return 'dawn–9am';
       const lowHour = new Date(low.time).getHours();
       const start = Math.max(6, lowHour - 1);
-      const end = Math.min(lowHour + 2, 11); // cap at 11am
-      const fmt = (h: number) =>
-        `${h > 12 ? h - 12 : h}${h >= 12 ? "pm" : "am"}`;
+      const end = Math.min(lowHour + 2, 11);
       return `${fmt(start)}–${fmt(end)}`;
     })();
 
-    const tideLabel = conditions.tides.nextLow
-      ? `Low tide ${new Date(conditions.tides.nextLow.time).getHours()}am ✓`
-      : "";
-
-    // show each negative factor, collapse all positives into one line
-    const negatives = viz.factors
-      .filter((f) => f.impact === "negative")
-      .map((f) => `✗ ${f.note}`);
-    const positiveCount = viz.factors.filter(
-      (f) => f.impact === "positive",
-    ).length;
-    const positivesSummary =
-      positiveCount > 0 ? `✓ Everything else looks clean` : "";
+    const factorLines = viz.factors.map(f =>
+      f.impact === 'negative'
+        ? `❌ ${f.note}`
+        : f.impact === 'positive'
+        ? `✅ ${f.note}`
+        : `➖ ${f.note}`
+    ).join('\n');
 
     const replyText = [
-      `${geo.displayName} · ${dateLabel}`,
-      `${viz.score}/10 ${viz.label} · ${viz.estVisibilityFt} viz · ${conditions.seaTempF}°F water`,
-      `Best window: ${bestWindow}`,
-      tideLabel,
+      // section 1 — location + score
+      `🤿 ${geo.displayName} · ${dateLabel}`,
+      `🌊 ${viz.score}/10 ${viz.label} · ${viz.estVisibilityFt} viz · ${conditions.seaTempF}°F`,
+      `⏰ Best window: ${bestWindow}`,
       ``,
-      ...negatives,
-      positivesSummary,
+      // section 2 — factors
+      factorLines,
       ``,
-      `Reply "more" for full conditions`,
+      // section 3 — actions
+      `Reply "more" for full breakdown`,
       `👍 for 5am update`,
     ]
-      .filter(Boolean)
-      .join("\n");
+      .filter(line => line !== undefined)
+      .join('\n');
 
     console.log("[agent] reply:", replyText.slice(0, 100));
 
