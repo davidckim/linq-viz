@@ -24,8 +24,8 @@ export function factorIcon(impact: VizFactor['impact']): string {
   return FACTOR_ICON[impact];
 }
 
-export function formatFactorLine(f: VizFactor): string {
-  return `${FACTOR_ICON[f.impact]} ${f.note}`;
+export function formatFactorLine(factor: VizFactor): string {
+  return `${FACTOR_ICON[factor.impact]} ${factor.note}`;
 }
 
 export function formatFactorLines(factors: VizFactor[]): string {

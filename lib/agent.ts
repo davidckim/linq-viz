@@ -1,7 +1,7 @@
 import { generateText, Output } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
-import { fetchConditions } from './data/index';
+import { fetchConditions, type ConditionsData } from './data/index';
 import { computeVizScore, formatFactorLines } from './viz-score';
 import { checkMlpa } from './mlpa';
 import { getBestDiveWindow } from './dive-window';
@@ -105,7 +105,7 @@ export interface AgentResult {
     targetSpecies: string | null;
     vizScore: number;
     vizSummary: string;
-    conditionsSnapshot: object;
+    conditionsSnapshot: ConditionsData;
   };
   catchData?: {
     species: string;

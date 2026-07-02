@@ -55,7 +55,6 @@ function nearestGauge(lat: number, lng: number) {
 }
 
 function classifyDischarge(cfs: number): RunoffData['status'] {
-  // Thresholds based on typical SoCal dry-season baseline
   // In summer, anything above ~50 cfs is elevated for most SoCal rivers
   if (cfs < 10) return 'normal';
   if (cfs < 50) return 'elevated';

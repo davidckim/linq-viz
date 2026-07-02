@@ -1,6 +1,6 @@
 // Open-Meteo marine API - free, no key needed
 // https://open-meteo.com/en/docs/marine-weather-api
-// I picked this over Stormglass because it's actually free (no trial BS)
+// I picked this over Stormglass because it's actually free
 
 import { DATA_ENDPOINTS } from './endpoints';
 
@@ -71,7 +71,6 @@ export async function getMarineConditions(
   const marine = await marineRes.json();
   const wind = await windRes.json();
 
-  // index 7 = 7am local time
   const hour = 7;
 
   return {
