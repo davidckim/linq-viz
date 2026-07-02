@@ -51,48 +51,23 @@ async function geocodeLocation(location: string) {
   return object;
 }
 
-// get today's date in Pacific time (Vercel runs UTC — without this,
-// "tomorrow" after 5pm Pacific would resolve to the wrong day)
-function getTodayPacific(): Date {
-  const pacificStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles' });
-  return new Date(pacificStr);
+// today's date in Pacific time as YYYY-MM-DD, passed to GPT so it can
+// resolve relative dates like "this Saturday" to real calendar dates
+function getTodayPacificISO(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 }
 
-// parse a natural language date like "this Saturday" or "tomorrow" into a JS Date
-function parseTargetDate(dateStr: string): Date {
-  const lower = dateStr.toLowerCase();
-  const today = getTodayPacific();
+// GPT returns dates as YYYY-MM-DD — parse without timezone shift
+function parseISODate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
 
-  if (lower.includes('tomorrow')) {
-    const d = new Date(today);
-    d.setDate(d.getDate() + 1);
-    return d;
-  }
-
-  const dayNames = [
-    "sunday",
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-  ];
-  for (const [i, name] of dayNames.entries()) {
-    if (lower.includes(name)) {
-      const todayDay = today.getDay();
-      let daysUntil = i - todayDay;
-      if (daysUntil <= 0) daysUntil += 7;
-      const target = new Date(today);
-      target.setDate(today.getDate() + daysUntil);
-      return target;
-    }
-  }
-
-  // fall back to tomorrow if we can't parse it
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  return tomorrow;
+// fallback if GPT returns null for date — default to tomorrow Pacific
+function tomorrowPacific(): Date {
+  const iso = getTodayPacificISO();
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(year, month - 1, day + 1);
 }
 
 export function checkLegality(
@@ -148,14 +123,17 @@ export async function processMessage(
   // parse intent
   // strictJsonSchema: false — Zod v4 emits anyOf for nullable fields which OpenAI's
   // Responses API strict mode rejects; non-strict mode accepts it fine
+  const todayISO = getTodayPacificISO();
+
   const { object: intent } = await generateObject({
     model: openai("gpt-4o"),
     schema: IntentSchema,
     providerOptions: { openai: { strictJsonSchema: false } },
     system: `You are Viz, a spearfishing and dive planning assistant for Southern California.
+Today's date is ${todayISO} (Pacific time).
 Parse the user's message and extract structured intent.
 For catch_log: extract species, size in inches, and spot name if mentioned.
-For trip_plan: extract location, date, and target species if mentioned.
+For trip_plan: extract location, date, and target species if mentioned. Resolve relative dates like "this Saturday" or "tomorrow" to a YYYY-MM-DD string based on today's date.
 For regulation questions or general diving questions, set type to "question" and write a directReply.`,
     prompt: userMessage,
   });
@@ -164,12 +142,8 @@ For regulation questions or general diving questions, set type to "question" and
   if (intent.type === "trip_plan" && intent.location != null) {
     const geo = await geocodeLocation(intent.location);
     const targetDate = intent.date
-      ? parseTargetDate(intent.date)
-      : (() => {
-          const d = getTodayPacific();
-          d.setDate(d.getDate() + 1);
-          return d;
-        })();
+      ? parseISODate(intent.date)
+      : tomorrowPacific();
 
     const conditions = await fetchConditions(
       geo.latitude,
