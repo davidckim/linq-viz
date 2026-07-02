@@ -50,6 +50,11 @@ export async function POST(req: NextRequest) {
   const chatId = payload.data.chat.id;
   const text = extractTextFromParts(payload.data.parts);
 
+  const allowedNumbers = (process.env.ALLOWED_PHONE_NUMBERS ?? '').split(',').map(n => n.trim()).filter(Boolean);
+  if (allowedNumbers.length > 0 && !allowedNumbers.includes(phoneNumber)) {
+    return NextResponse.json({ received: true });
+  }
+
   if (!text) return NextResponse.json({ received: true });
 
   // deduplicate
