@@ -19,10 +19,10 @@ export interface VizScore {
 function estimateVisibility(swellFt: number, runoffStatus: string): string {
   if (runoffStatus === 'high') return '0-5ft';
   if (swellFt >= 5) return '0-5ft';
-  if (swellFt >= 3 || runoffStatus === 'elevated') return '5-10ft';
-  if (swellFt >= 2) return '10-20ft';
-  if (swellFt >= 1) return '20-30ft';
-  return '30ft+';
+  if (swellFt >= 3) return '0-5ft';
+  if (swellFt >= 2 || runoffStatus === 'elevated') return '5-10ft';
+  if (swellFt >= 1) return '10-20ft';
+  return '20-30ft+';
 }
 
 function getLabel(score: number): string {
