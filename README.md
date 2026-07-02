@@ -75,3 +75,5 @@ npm run db:studio    # Drizzle Studio
 - **Viz score is a heuristic**, not validated against real dive logs. It is good for comparing days.
 
 Built as a technical challenge demo for Linq.
+
+Landing page background video is from [Dave the Diver](https://store.steampowered.com/app/1868140/Dave_the_Diver/).
