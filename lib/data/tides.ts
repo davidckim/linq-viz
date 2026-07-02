@@ -2,6 +2,8 @@
 // https://api.tidesandcurrents.noaa.gov/api/prod/
 // tried a few options, this is the most reliable for SoCal
 
+import { haversineDistanceMiles } from "./geo";
+
 export interface TidePrediction {
   time: string;
   heightFt: number; // tide height in feet
@@ -15,7 +17,7 @@ export interface TideData {
   nextHigh: TidePrediction | null;
 }
 
-// hardcoded the SoCal stations I care about - could make this dynamic
+// hardcoded the SoCal stations I care about. could make this dynamic
 // but for the demo scope this is fine and easier to reason about
 // station IDs from: https://tidesandcurrents.noaa.gov/stations.html
 const SOCAL_STATIONS = [
@@ -27,34 +29,17 @@ const SOCAL_STATIONS = [
   { id: "9411340", name: "Santa Barbara", lat: 34.408, lng: -119.685 },
 ];
 
-function haversineDistanceMiles(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-) {
-  const R = 3958.8;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 function nearestStation(lat: number, lng: number) {
-  return SOCAL_STATIONS.reduce((closest, station) => {
+  let best = SOCAL_STATIONS[0];
+  let bestDist = haversineDistanceMiles(lat, lng, best.lat, best.lng);
+  for (const station of SOCAL_STATIONS.slice(1)) {
     const dist = haversineDistanceMiles(lat, lng, station.lat, station.lng);
-    const closestDist = haversineDistanceMiles(
-      lat,
-      lng,
-      closest.lat,
-      closest.lng,
-    );
-    return dist < closestDist ? station : closest;
-  });
+    if (dist < bestDist) {
+      best = station;
+      bestDist = dist;
+    }
+  }
+  return best;
 }
 
 export async function getTideData(

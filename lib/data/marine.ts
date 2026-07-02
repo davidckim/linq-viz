@@ -9,15 +9,10 @@ export interface MarineConditions {
   windSpeedKnots: number;
   windDirectionDeg: number;
   seaTempC: number;
-  fetchedAt: string;
 }
 
 function metersToFeet(m: number) {
   return Math.round(m * 3.281 * 10) / 10;
-}
-
-function msToKnots(ms: number) {
-  return Math.round(ms * 1.944 * 10) / 10;
 }
 
 export function celsiusToFahrenheit(c: number) {
@@ -26,10 +21,6 @@ export function celsiusToFahrenheit(c: number) {
 
 export function swellHeightFt(conditions: MarineConditions) {
   return metersToFeet(conditions.swellHeightM);
-}
-
-export function windSpeedKnots(conditions: MarineConditions) {
-  return conditions.windSpeedKnots;
 }
 
 // grabs conditions for a specific date - we use 7am as the representative
@@ -50,7 +41,6 @@ export async function getMarineConditions(
       "wave_height",
       "wave_period",
       "wave_direction",
-      "wind_wave_height",
       "sea_surface_temperature",
     ].join(","),
   );
@@ -89,6 +79,5 @@ export async function getMarineConditions(
     windSpeedKnots: wind.hourly.wind_speed_10m[hour] ?? 0,
     windDirectionDeg: wind.hourly.wind_direction_10m[hour] ?? 0,
     seaTempC: marine.hourly.sea_surface_temperature[hour] ?? 0,
-    fetchedAt: new Date().toISOString(),
   };
 }

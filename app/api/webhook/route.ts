@@ -1,9 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { conversations, messages, trips, catches, alerts } from '@/lib/db/schema';
-import { verifyLinqWebhook, extractTextFromParts, sendLinqMessage } from '@/lib/linq';
-import { processMessage } from '@/lib/agent';
+import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import {
+  conversations,
+  messages,
+  trips,
+  catches,
+  alerts,
+} from "@/lib/db/schema";
+import {
+  verifyLinqWebhook,
+  extractTextFromParts,
+  sendLinqMessage,
+} from "@/lib/linq";
+import { processMessage } from "@/lib/agent";
 
 interface LinqWebhookPayload {
   event_type: string;
@@ -11,7 +21,7 @@ interface LinqWebhookPayload {
   created_at: string;
   data: {
     id: string;
-    direction: 'inbound' | 'outbound';
+    direction: "inbound" | "outbound";
     sender_handle: { handle: string; is_me: boolean };
     chat: { id: string; is_group: boolean; owner_handle: { handle: string } };
     parts: { type: string; value: string }[];
@@ -28,20 +38,24 @@ export async function POST(req: NextRequest) {
   const rawBody = await req.text();
 
   const valid = verifyLinqWebhook(rawBody, {
-    'webhook-id': req.headers.get('webhook-id') ?? undefined,
-    'webhook-timestamp': req.headers.get('webhook-timestamp') ?? undefined,
-    'webhook-signature': req.headers.get('webhook-signature') ?? undefined,
+    "webhook-id": req.headers.get("webhook-id") ?? undefined,
+    "webhook-timestamp": req.headers.get("webhook-timestamp") ?? undefined,
+    "webhook-signature": req.headers.get("webhook-signature") ?? undefined,
   });
-  if (!valid) return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  if (!valid)
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
 
   let payload: LinqWebhookPayload;
   try {
     payload = JSON.parse(rawBody);
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  if (payload.event_type !== 'message.received' || payload.data.direction !== 'inbound') {
+  if (
+    payload.event_type !== "message.received" ||
+    payload.data.direction !== "inbound"
+  ) {
     return NextResponse.json({ received: true });
   }
 
@@ -50,38 +64,64 @@ export async function POST(req: NextRequest) {
   const chatId = payload.data.chat.id;
   const text = extractTextFromParts(payload.data.parts);
 
-  const allowedNumbers = (process.env.ALLOWED_PHONE_NUMBERS ?? '').split(',').map(n => n.trim()).filter(Boolean);
+  const allowedNumbers = (process.env.ALLOWED_PHONE_NUMBERS ?? "")
+    .split(",")
+    .map((n) => n.trim())
+    .filter(Boolean);
   if (allowedNumbers.length > 0 && !allowedNumbers.includes(phoneNumber)) {
     return NextResponse.json({ received: true });
   }
 
   if (!text) return NextResponse.json({ received: true });
 
-  // deduplicate
   const existing = await db.query.messages.findFirst({
     where: eq(messages.linqEventId, eventId),
   });
-  if (existing) return NextResponse.json({ received: true, deduplicated: true });
+  if (existing)
+    return NextResponse.json({ received: true, deduplicated: true });
 
-  // find or create conversation
   let conversation = await db.query.conversations.findFirst({
     where: eq(conversations.phoneNumber, phoneNumber),
   });
   if (!conversation) {
-    const [created] = await db.insert(conversations).values({ phoneNumber }).returning();
+    const [created] = await db
+      .insert(conversations)
+      .values({ phoneNumber })
+      .returning();
     conversation = created;
   }
 
-  // store inbound message
   await db.insert(messages).values({
     conversationId: conversation.id,
     linqEventId: eventId,
-    direction: 'inbound',
+    direction: "inbound",
     body: text,
   });
 
-  // handle tapback alarm confirmation — user reacted 👍 to set a morning alarm
-  if (text.trim() === '👍') {
+  if (text.toLowerCase().trim() === "more") {
+    const recentTrip = await db.query.trips.findFirst({
+      where: eq(trips.conversationId, conversation.id),
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+    });
+
+    const appUrl = process.env.APP_URL ?? "https://linq-viz.vercel.app";
+
+    if (recentTrip) {
+      await sendLinqMessage(
+        chatId,
+        `🤿 Full breakdown → ${appUrl}/report/${recentTrip.id}`,
+      );
+    } else {
+      await sendLinqMessage(
+        chatId,
+        `No recent trip found. Send me a dive spot and date first.`,
+      );
+    }
+
+    return NextResponse.json({ received: true });
+  }
+
+  if (text.trim() === "👍") {
     const recentTrip = await db.query.trips.findFirst({
       where: eq(trips.conversationId, conversation.id),
       orderBy: (t, { desc }) => [desc(t.createdAt)],
@@ -93,43 +133,49 @@ export async function POST(req: NextRequest) {
 
       await db.insert(alerts).values({
         conversationId: conversation.id,
-        type: 'morning_alarm',
+        type: "morning_alarm",
         tripId: recentTrip.id,
         spotName: recentTrip.spotName,
         fireAt,
       });
 
-      await db.update(trips).set({ alarmSet: true }).where(eq(trips.id, recentTrip.id));
-      await sendLinqMessage(chatId, `Got it. I'll text you at 5am with updated conditions for ${recentTrip.spotName}.`);
+      await db
+        .update(trips)
+        .set({ alarmSet: true })
+        .where(eq(trips.id, recentTrip.id));
+      await sendLinqMessage(
+        chatId,
+        `Got it. I'll text you at 5am with updated conditions for ${recentTrip.spotName}.`,
+      );
     }
 
     return NextResponse.json({ received: true });
   }
 
-  // process with AI agent
   let result;
   try {
     result = await processMessage(text);
   } catch (err) {
-    console.error('[agent] error:', err);
-    // always return 200 to Linq — never let webhook errors cause retries
+    console.error("[agent] error:", err);
     try {
-      await sendLinqMessage(chatId, "Something went wrong on my end. Try again.");
+      await sendLinqMessage(
+        chatId,
+        "Something went wrong on my end. Try again.",
+      );
     } catch (sendErr) {
-      console.error('[send] error:', sendErr);
+      console.error("[send] error:", sendErr);
     }
     return NextResponse.json({ received: true });
   }
 
-  // persist trip data
-  if (result.intent === 'trip_plan' && result.tripData) {
+  if (result.intent === "trip_plan" && result.tripData) {
     const d = result.tripData;
     await db.insert(trips).values({
       conversationId: conversation.id,
       spotName: d.spotName,
       latitude: d.latitude,
       longitude: d.longitude,
-      plannedDate: d.plannedDate.toISOString().split('T')[0],
+      plannedDate: d.plannedDate.toISOString().split("T")[0],
       targetSpecies: d.targetSpecies ?? undefined,
       vizScore: d.vizScore,
       vizSummary: d.vizSummary,
@@ -137,8 +183,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // persist catch data
-  if (result.intent === 'catch_log' && result.catchData) {
+  if (result.intent === "catch_log" && result.catchData) {
     const c = result.catchData;
     await db.insert(catches).values({
       conversationId: conversation.id,
@@ -149,16 +194,15 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // send reply — wrapped so a Linq API error doesn't surface as a 500
   try {
     await sendLinqMessage(chatId, result.replyText);
     await db.insert(messages).values({
       conversationId: conversation.id,
-      direction: 'outbound',
+      direction: "outbound",
       body: result.replyText,
     });
   } catch (err) {
-    console.error('[send] error:', err);
+    console.error("[send] error:", err);
   }
 
   return NextResponse.json({ received: true });

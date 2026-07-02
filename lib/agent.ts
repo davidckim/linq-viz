@@ -3,6 +3,32 @@ import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { fetchConditions } from "./data/index";
 import { computeVizScore } from "./viz-score";
+import { haversineDistanceMiles } from "./data/geo";
+
+// SoCal MLPA zones where spearfishing is restricted or banned
+// Source: wildlife.ca.gov/Conservation/Marine/MPAs
+// type "no-take" = all take prohibited; "restricted" = some species/methods restricted
+const MLPA_ZONES = [
+  { name: "La Jolla SMR", lat: 32.835, lng: -117.285, type: "no-take" },
+  { name: "La Jolla SMCA", lat: 32.853, lng: -117.272, type: "restricted" },
+  { name: "South La Jolla SMR", lat: 32.775, lng: -117.267, type: "no-take" },
+  { name: "Swami's SMCA", lat: 33.038, lng: -117.295, type: "restricted" },
+  { name: "Laguna Beach SMCA", lat: 33.542, lng: -117.782, type: "restricted" },
+  { name: "Point Dume SMCA", lat: 34.003, lng: -118.807, type: "restricted" },
+  { name: "Leo Carrillo SMCA", lat: 34.046, lng: -118.938, type: "restricted" },
+  { name: "Anacapa Island SMR", lat: 34.01, lng: -119.36, type: "no-take" },
+] as const;
+
+function checkMlpa(lat: number, lng: number): string | null {
+  for (const zone of MLPA_ZONES) {
+    if (haversineDistanceMiles(lat, lng, zone.lat, zone.lng) <= 2) {
+      return zone.type === "no-take"
+        ? `⛔ ${zone.name} is a no-take MPA — spearfishing is prohibited here.`
+        : `⚠️ ${zone.name} is a restricted MPA — verify species rules at wildlife.ca.gov before diving.`;
+    }
+  }
+  return null;
+}
 
 // California fish regulations - keeping this hardcoded for now
 // would pull from CDFW API in a real version but their data isn't structured well
@@ -19,9 +45,8 @@ const REGS: Record<
   rockfish: { minInches: 10, bagLimit: 10, season: "year-round" },
 };
 
-// step 1: parse what the user is asking for
 const IntentSchema = z.object({
-  type: z.enum(["trip_plan", "catch_log", "question", "other"]),
+  type: z.enum(["trip_plan", "catch_log", "question", "greeting", "other"]),
   location: z.string().nullable(),
   date: z.string().nullable(),
   targetSpecies: z.string().nullable(),
@@ -33,8 +58,6 @@ const IntentSchema = z.object({
 
 type Intent = z.infer<typeof IntentSchema>;
 
-// step 2: geocode the location string to lat/lng
-// using GPT for this instead of a geocoding API to avoid another dependency
 const GeoSchema = z.object({
   latitude: z.number(),
   longitude: z.number(),
@@ -51,22 +74,20 @@ async function geocodeLocation(location: string) {
   return object;
 }
 
-// today's date in Pacific time as YYYY-MM-DD, passed to GPT so it can
-// resolve relative dates like "this Saturday" to real calendar dates
 function getTodayPacificISO(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+  return new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Los_Angeles",
+  });
 }
 
-// GPT returns dates as YYYY-MM-DD — parse without timezone shift
 function parseISODate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split('-').map(Number);
+  const [year, month, day] = dateStr.split("-").map(Number);
   return new Date(year, month - 1, day);
 }
 
-// fallback if GPT returns null for date — default to tomorrow Pacific
 function tomorrowPacific(): Date {
   const iso = getTodayPacificISO();
-  const [year, month, day] = iso.split('-').map(Number);
+  const [year, month, day] = iso.split("-").map(Number);
   return new Date(year, month - 1, day + 1);
 }
 
@@ -134,7 +155,8 @@ Today's date is ${todayISO} (Pacific time).
 Parse the user's message and extract structured intent.
 For catch_log: extract species, size in inches, and spot name if mentioned.
 For trip_plan: extract location, date, and target species if mentioned. Resolve relative dates like "this Saturday" or "tomorrow" to a YYYY-MM-DD string based on today's date.
-For regulation questions or general diving questions, set type to "question" and write a directReply.`,
+For regulation questions or general diving questions, set type to "question" and write a directReply.
+For greetings like "hey", "hello", "hey viz", "hi" — set type to "greeting".`,
     prompt: userMessage,
   });
 
@@ -158,24 +180,32 @@ For regulation questions or general diving questions, set type to "question" and
       day: "numeric",
     });
 
-    const fmt = (h: number) => `${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}`;
+    const toAmPm = (hour: number) =>
+      new Date(2000, 0, 1, hour)
+        .toLocaleTimeString("en-US", { hour: "numeric", hour12: true })
+        .toLowerCase()
+        .replace(" ", "");
 
     const bestWindow = (() => {
       const low = conditions.tides.nextLow;
-      if (!low) return 'dawn–9am';
+      if (!low) return "dawn–9am";
       const lowHour = new Date(low.time).getHours();
       const start = Math.max(6, lowHour - 1);
       const end = Math.min(lowHour + 2, 11);
-      return `${fmt(start)}–${fmt(end)}`;
+      return `${toAmPm(start)}–${toAmPm(end)}`;
     })();
 
-    const factorLines = viz.factors.map(f =>
-      f.impact === 'negative'
-        ? `❌ ${f.note}`
-        : f.impact === 'positive'
-        ? `✅ ${f.note}`
-        : `➖ ${f.note}`
-    ).join('\n');
+    const factorLines = viz.factors
+      .map((f) =>
+        f.impact === "negative"
+          ? `❌ ${f.note}`
+          : f.impact === "positive"
+            ? `✅ ${f.note}`
+            : `➖ ${f.note}`,
+      )
+      .join("\n");
+
+    const mlpaWarning = checkMlpa(geo.latitude, geo.longitude);
 
     const replyText = [
       // section 1 — location + score
@@ -186,12 +216,12 @@ For regulation questions or general diving questions, set type to "question" and
       // section 2 — factors
       factorLines,
       ``,
-      // section 3 — actions
+      // section 3 — MLPA warning if applicable
+      ...(mlpaWarning ? [mlpaWarning, ``] : []),
+      // section 4 — actions
       `Reply "more" for full breakdown`,
       `👍 for 5am update`,
-    ]
-      .filter(line => line !== undefined)
-      .join('\n');
+    ].join("\n");
 
     console.log("[agent] reply:", replyText.slice(0, 100));
 
@@ -239,6 +269,25 @@ For regulation questions or general diving questions, set type to "question" and
         spotName: intent.spotName ?? null,
         isLegal,
       },
+    };
+  }
+
+  // greeting
+  if (intent.type === "greeting") {
+    return {
+      intent: "greeting",
+      replyText: [
+        `Hey! 🤿 I'm Viz — spearfishing conditions over text.`,
+        ``,
+        `Send me a dive spot and date and I'll send back:`,
+        `• Viz score (1–10)`,
+        `• Swell, wind & sea temp`,
+        `• Best entry window`,
+        `• Tide & runoff conditions`,
+        `• MLPA legality for the spot`,
+        ``,
+        `Example: "How's La Jolla Cove this Thursday?"`,
+      ].join("\n"),
     };
   }
 

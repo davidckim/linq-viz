@@ -6,14 +6,18 @@ import {
 import { getTideData } from "./tides";
 import { getRunoffData } from "./runoff";
 
+import type { MarineConditions } from "./marine";
+import type { TideData } from "./tides";
+import type { RunoffData } from "./runoff";
+
 export type { MarineConditions } from "./marine";
 export type { TideData, TidePrediction } from "./tides";
 export type { RunoffData } from "./runoff";
 
 export interface ConditionsData {
-  marine: Awaited<ReturnType<typeof getMarineConditions>>;
-  tides: Awaited<ReturnType<typeof getTideData>>;
-  runoff: Awaited<ReturnType<typeof getRunoffData>>;
+  marine: MarineConditions;
+  tides: TideData;
+  runoff: RunoffData;
   seaTempF: number;
   swellFt: number;
   fetchedAt: string;
