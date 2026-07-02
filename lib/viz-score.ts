@@ -44,16 +44,16 @@ export function computeVizScore(conditions: ConditionsData): VizScore {
   // under 2ft is ideal for viz, anything above 3ft starts stirring up the bottom
   const swellFt = conditions.swellFt;
   if (swellFt <= 1.5) {
-    factors.push({ name: 'Swell', impact: 'positive', note: `${swellFt}ft — flat, excellent conditions` });
+    factors.push({ name: 'Swell', impact: 'positive', note: `${swellFt}ft swell — flat, great viz` });
   } else if (swellFt <= 2.5) {
     score -= 1;
-    factors.push({ name: 'Swell', impact: 'neutral', note: `${swellFt}ft — manageable` });
+    factors.push({ name: 'Swell', impact: 'neutral', note: `${swellFt}ft swell — manageable` });
   } else if (swellFt <= 4) {
     score -= 3;
-    factors.push({ name: 'Swell', impact: 'negative', note: `${swellFt}ft — moderate churn, reduced viz` });
+    factors.push({ name: 'Swell', impact: 'negative', note: `${swellFt}ft swell — expect 5-10ft viz` });
   } else {
     score -= 5;
-    factors.push({ name: 'Swell', impact: 'negative', note: `${swellFt}ft — big swell, likely poor viz` });
+    factors.push({ name: 'Swell', impact: 'negative', note: `${swellFt}ft swell — rough, expect 0-5ft viz` });
   }
 
   // --- Swell period ---
