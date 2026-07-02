@@ -141,7 +141,6 @@ For greetings like "hey", "hello", "hey viz", "hi" — set type to "greeting".`,
 
   if (!intent) throw new Error('Failed to parse intent');
 
-  // trip planning flow
   if (intent.type === 'trip_plan' && intent.location != null) {
     const geo = await geocodeLocation(intent.location);
     const targetDate = intent.date
@@ -232,7 +231,7 @@ For greetings like "hey", "hello", "hey viz", "hi" — set type to "greeting".`,
     return {
       intent: 'greeting',
       replyText: [
-        "Hey! 🤿 I'm Viz — spearfishing conditions over text.",
+        "Hey! 🤿 I'm Viz - spearfishing conditions over text.",
         '',
         "Send me a dive spot and date and I'll send back:",
         '• Viz score (1–10)',
