@@ -33,7 +33,7 @@ npm run db:push
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) for the landing page. Point your Linq webhook at `/api/webhook`.
+Open [http://localhost:3000](http://localhost:3000) for the landing page. Point your Linq webhook at your deployed URL (e.g. `https://your-app.vercel.app/api/webhook`), or use ngrok to tunnel local dev to `/api/webhook`.
 
 ### Environment variables
 
