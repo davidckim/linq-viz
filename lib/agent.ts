@@ -166,35 +166,44 @@ For regulation questions or general diving questions, set type to "question" and
     const viz = computeVizScore(conditions);
 
     const dateLabel = targetDate.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
+      weekday: "short",
+      month: "short",
       day: "numeric",
     });
 
-    const factorLines = viz.factors
-      .map(
-        (f) =>
-          `${f.impact === "positive" ? "✓" : f.impact === "negative" ? "✗" : "–"} ${f.note}`,
-      )
-      .join("\n");
+    // best window: center on low tide ±1.5hrs, but cap start at 6am
+    const bestWindow = (() => {
+      const low = conditions.tides.nextLow;
+      if (!low) return 'dawn–9am';
+      const lowHour = new Date(low.time).getHours();
+      const start = Math.max(6, lowHour - 1);
+      const end = Math.min(lowHour + 2, 11); // cap at 11am
+      const fmt = (h: number) => `${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}`;
+      return `${fmt(start)}–${fmt(end)}`;
+    })();
 
-    const tideInfo = conditions.tides.nextLow
-      ? `Low tide: ${conditions.tides.nextLow.time.split(" ")[1]} (${conditions.tides.nextLow.heightFt.toFixed(1)}ft)`
-      : "";
+    const tideLabel = conditions.tides.nextLow
+      ? `Low tide ${new Date(conditions.tides.nextLow.time).getHours()}am ✓`
+      : '';
+
+    // show each negative factor, collapse all positives into one line
+    const negatives = viz.factors
+      .filter(f => f.impact === 'negative')
+      .map(f => `✗ ${f.note}`);
+    const positiveCount = viz.factors.filter(f => f.impact === 'positive').length;
+    const positivesSummary = positiveCount > 0 ? `✓ Everything else looks clean` : '';
 
     const replyText = [
-      `Viz report — ${geo.displayName}, ${dateLabel}`,
+      `${geo.displayName} · ${dateLabel}`,
+      `${viz.score}/10 ${viz.label} · ${viz.estVisibilityFt} viz · ${conditions.seaTempF}°F water`,
+      `Best window: ${bestWindow}`,
+      tideLabel,
       ``,
-      `Score: ${viz.score}/10 — ${viz.label}`,
-      `Est. visibility: ${viz.estVisibilityFt}`,
-      `Water temp: ${conditions.seaTempF}°F`,
-      tideInfo,
+      ...negatives,
+      positivesSummary,
       ``,
-      factorLines,
-      ``,
-      viz.verdict,
-      ``,
-      `👍 to get a 5am morning update`,
+      `Reply "more" for full conditions`,
+      `👍 for 5am update`,
     ]
       .filter(Boolean)
       .join("\n");
