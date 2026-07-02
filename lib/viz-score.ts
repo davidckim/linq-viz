@@ -50,10 +50,10 @@ export function computeVizScore(conditions: ConditionsData): VizScore {
     factors.push({ name: 'Swell', impact: 'neutral', note: `${swellFt}ft swell — manageable` });
   } else if (swellFt <= 4) {
     score -= 3;
-    factors.push({ name: 'Swell', impact: 'negative', note: `${swellFt}ft swell — expect 5-10ft viz` });
+    factors.push({ name: 'Swell', impact: 'negative', note: `${swellFt}ft swell — moderate churn` });
   } else {
     score -= 5;
-    factors.push({ name: 'Swell', impact: 'negative', note: `${swellFt}ft swell — rough, expect 0-5ft viz` });
+    factors.push({ name: 'Swell', impact: 'negative', note: `${swellFt}ft swell — rough conditions` });
   }
 
   // --- Swell period ---
@@ -76,18 +76,18 @@ export function computeVizScore(conditions: ConditionsData): VizScore {
   const isOffshore = windDir >= 30 && windDir <= 120;
 
   if (windKts < 5) {
-    factors.push({ name: 'Wind', impact: 'positive', note: `${windKts}kts — calm, great for viz` });
+    factors.push({ name: 'Wind', impact: 'positive', note: `${windKts}kts wind — calm, great for viz` });
   } else if (isOffshore && windKts < 15) {
-    factors.push({ name: 'Wind', impact: 'positive', note: `${windKts}kts offshore — pulling clear water up` });
+    factors.push({ name: 'Wind', impact: 'positive', note: `${windKts}kts wind offshore — pulling clear water up` });
   } else if (windKts < 10) {
     score -= 1;
-    factors.push({ name: 'Wind', impact: 'neutral', note: `${windKts}kts — light onshore, minor impact` });
+    factors.push({ name: 'Wind', impact: 'neutral', note: `${windKts}kts wind — light onshore, minor impact` });
   } else if (windKts < 20) {
     score -= 2;
-    factors.push({ name: 'Wind', impact: 'negative', note: `${windKts}kts onshore — surface chop, some particulate` });
+    factors.push({ name: 'Wind', impact: 'negative', note: `${windKts}kts wind onshore — surface chop` });
   } else {
     score -= 3;
-    factors.push({ name: 'Wind', impact: 'negative', note: `${windKts}kts — strong wind, avoid` });
+    factors.push({ name: 'Wind', impact: 'negative', note: `${windKts}kts wind — strong, avoid` });
   }
 
   // --- River runoff ---
