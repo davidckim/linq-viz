@@ -4,6 +4,12 @@ export function verifyLinqWebhook(
   rawBody: string,
   headers: { 'webhook-id'?: string; 'webhook-timestamp'?: string; 'webhook-signature'?: string }
 ): boolean {
+  // skip verification in local dev when no signature headers are present
+  const hasSignatureHeaders = headers['webhook-id'] && headers['webhook-signature'];
+  if (!hasSignatureHeaders && process.env.NODE_ENV === 'development') {
+    return true;
+  }
+
   const secret = process.env.LINQ_WEBHOOK_SECRET;
   if (!secret) {
     console.warn('LINQ_WEBHOOK_SECRET not set — skipping verification');
@@ -35,25 +41,32 @@ export function extractTextFromParts(parts: { type: string; value: string }[]): 
     .trim();
 }
 
-export async function sendLinqMessage(toHandle: string, text: string): Promise<void> {
+// Send a reply into an existing chat thread.
+// chatId comes from payload.data.chat.id on the inbound webhook.
+export async function sendLinqMessage(chatId: string, text: string): Promise<void> {
   const apiKey = process.env.LINQ_API_KEY;
-  const fromNumber = process.env.LINQ_PHONE_NUMBER;
 
-  if (!apiKey || !fromNumber) {
-    console.warn('Linq credentials not set — skipping send');
+  if (!apiKey) {
+    console.warn('LINQ_API_KEY not set — skipping send');
     return;
   }
 
-  const res = await fetch('https://api.linqapp.com/v1/messages', {
+  if (!text || !text.trim()) {
+    console.warn('[linq] skipping send — empty message');
+    return;
+  }
+
+  // v3 API: POST /chats/{chatId}/messages with message.parts wrapper
+  const res = await fetch(`https://api.linqapp.com/api/partner/v3/chats/${chatId}/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      from: fromNumber,
-      to: toHandle,
-      parts: [{ type: 'text', value: text }],
+      message: {
+        parts: [{ type: 'text', value: text }],
+      },
     }),
   });
 
