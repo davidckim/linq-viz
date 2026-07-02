@@ -16,7 +16,6 @@ import {
   startTypingIndicator,
 } from '@/lib/linq';
 import { processMessage } from '@/lib/agent';
-import { isAllowedPhone } from '@/lib/allowlist';
 import { formatReportMessage } from '@/lib/app-url';
 
 interface LinqMessagePayload {
@@ -89,10 +88,6 @@ export async function POST(req: NextRequest) {
     const phoneNumber = payload.data.from;
     const chatId = payload.data.chat_id;
 
-    if (!isAllowedPhone(phoneNumber)) {
-      return NextResponse.json({ received: true });
-    }
-
     const conversation = await db.query.conversations.findFirst({
       where: eq(conversations.phoneNumber, phoneNumber),
     });
@@ -119,10 +114,6 @@ export async function POST(req: NextRequest) {
   const phoneNumber = payload.data.sender_handle.handle;
   const chatId = payload.data.chat.id;
   const text = extractTextFromParts(payload.data.parts);
-
-  if (!isAllowedPhone(phoneNumber)) {
-    return NextResponse.json({ received: true });
-  }
 
   if (!text) return NextResponse.json({ received: true });
 

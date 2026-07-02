@@ -45,7 +45,6 @@ Open [http://localhost:3000](http://localhost:3000) for the landing page. Point 
 | `LINQ_WEBHOOK_SECRET`   | Verifying inbound webhooks                                       |
 | `LINQ_PHONE_NUMBER`     | Shown on the landing page / QR code                              |
 | `APP_URL`               | Base URL for dashboard links (defaults to production)            |
-| `ALLOWED_PHONE_NUMBERS` | Optional comma-separated allowlist. Leave empty to allow anyone. |
 
 ## Project layout
 
