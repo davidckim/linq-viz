@@ -20,6 +20,10 @@ interface LinqWebhookPayload {
   };
 }
 
+export async function GET() {
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
 
