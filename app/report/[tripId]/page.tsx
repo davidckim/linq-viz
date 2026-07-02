@@ -266,18 +266,16 @@ export default async function ReportPage({
           </Card>
         </div>
 
-        {mlpaWarning && (
-          <div className="flex flex-col gap-2">
-            <SectionLabel>MLPA STATUS</SectionLabel>
-            <Card>
-              <CardContent className="pt-4">
-                <p className="font-barlow text-sm leading-relaxed text-white/80">
-                  {mlpaWarning}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        <div className="flex flex-col gap-2">
+          <SectionLabel>MLPA STATUS</SectionLabel>
+          <Card>
+            <CardContent className="pt-4">
+              <p className="font-barlow text-sm leading-relaxed text-white/80">
+                {mlpaWarning}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="flex flex-col gap-2">
           <SectionLabel>SCORE BREAKDOWN</SectionLabel>

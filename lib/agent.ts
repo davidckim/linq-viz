@@ -183,17 +183,14 @@ For greetings like "hey", "hello", "hey viz", "hi" — set type to "greeting".`,
     const mlpaWarning = checkMlpa(geo.latitude, geo.longitude);
 
     const replyText = [
-      // section 1 — location + score
       `🤿 ${geo.displayName} · ${dateLabel}`,
       `🌊 ${viz.score}/10 ${viz.label} · ${viz.estVisibilityFt} viz · ${conditions.seaTempF}°F`,
       `⏰ Best window: ${bestWindow}`,
       ``,
-      // section 2 — factors
       factorLines,
       ``,
-      // section 3 — MLPA warning if applicable
-      ...(mlpaWarning ? [mlpaWarning, ``] : []),
-      // section 4 — actions
+      mlpaWarning,
+      ``,
       `Reply "deets" or react 👍 for full breakdown`,
       `Reply "remind me" for 5am update`,
     ].join("\n");

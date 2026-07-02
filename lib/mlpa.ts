@@ -11,13 +11,14 @@ const MLPA_ZONES = [
   { name: "Anacapa Island SMR", lat: 34.01,  lng: -119.36,  type: "no-take" },
 ] as const;
 
-export function checkMlpa(lat: number, lng: number): string | null {
+export function checkMlpa(lat: number, lng: number): string {
   for (const zone of MLPA_ZONES) {
     if (haversineDistanceMiles(lat, lng, zone.lat, zone.lng) <= 2) {
-      return zone.type === "no-take"
-        ? `⛔ ${zone.name} is a no-take MPA — spearfishing is prohibited here.`
-        : `⚠️ ${zone.name} is a restricted MPA — verify species rules at wildlife.ca.gov before diving.`;
+      if (zone.type === "no-take") {
+        return `⛔ ${zone.name} is a no-take MPA — spearfishing is prohibited here.`;
+      }
+      return `⚠️ ${zone.name} is a restricted MPA — verify species rules at wildlife.ca.gov before diving.`;
     }
   }
-  return null;
+  return `✅ No MPAs within 2 miles — area is open for spearfishing.`;
 }
