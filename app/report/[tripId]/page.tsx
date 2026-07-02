@@ -5,6 +5,7 @@ import { trips } from "@/lib/db/schema";
 import type { ConditionsData } from "@/lib/data/index";
 import { computeVizScore } from "@/lib/viz-score";
 import { Card, CardContent } from "@/components/ui/card";
+import { checkMlpa } from "@/lib/mlpa";
 
 function degToCompass(deg: number) {
   const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
@@ -120,6 +121,8 @@ export default async function ReportPage({
     const end = Math.min(lowHour + 2, 11);
     return `${toAmPm(start)}–${toAmPm(end)}`;
   })();
+
+  const mlpaWarning = checkMlpa(trip.latitude, trip.longitude);
 
   const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${trip.longitude - 0.06},${trip.latitude - 0.04},${trip.longitude + 0.06},${trip.latitude + 0.04}&layer=mapnik&marker=${trip.latitude},${trip.longitude}`;
 
@@ -262,6 +265,19 @@ export default async function ReportPage({
             </CardContent>
           </Card>
         </div>
+
+        {mlpaWarning && (
+          <div className="flex flex-col gap-2">
+            <SectionLabel>MLPA STATUS</SectionLabel>
+            <Card>
+              <CardContent className="pt-4">
+                <p className="font-barlow text-sm leading-relaxed text-white/80">
+                  {mlpaWarning}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <SectionLabel>SCORE BREAKDOWN</SectionLabel>

@@ -98,30 +98,25 @@ export async function POST(req: NextRequest) {
     body: text,
   });
 
-  if (text.toLowerCase().trim() === "more") {
+  const appUrl = process.env.APP_URL ?? "https://linq-viz.vercel.app";
+  const normalized = text.toLowerCase().trim();
+
+  if (normalized === "deets") {
     const recentTrip = await db.query.trips.findFirst({
       where: eq(trips.conversationId, conversation.id),
       orderBy: (t, { desc }) => [desc(t.createdAt)],
     });
 
-    const appUrl = process.env.APP_URL ?? "https://linq-viz.vercel.app";
-
     if (recentTrip) {
-      await sendLinqMessage(
-        chatId,
-        `🤿 Full breakdown → ${appUrl}/report/${recentTrip.id}`,
-      );
+      await sendLinqMessage(chatId, `🤿 Full breakdown → ${appUrl}/report/${recentTrip.id}`);
     } else {
-      await sendLinqMessage(
-        chatId,
-        `No recent trip found. Send me a dive spot and date first.`,
-      );
+      await sendLinqMessage(chatId, `No recent trip found. Send me a dive spot and date first.`);
     }
 
     return NextResponse.json({ received: true });
   }
 
-  if (text.trim() === "👍") {
+  if (normalized === "remind me") {
     const recentTrip = await db.query.trips.findFirst({
       where: eq(trips.conversationId, conversation.id),
       orderBy: (t, { desc }) => [desc(t.createdAt)],
@@ -139,14 +134,25 @@ export async function POST(req: NextRequest) {
         fireAt,
       });
 
-      await db
-        .update(trips)
-        .set({ alarmSet: true })
-        .where(eq(trips.id, recentTrip.id));
-      await sendLinqMessage(
-        chatId,
-        `Got it. I'll text you at 5am with updated conditions for ${recentTrip.spotName}.`,
-      );
+      await db.update(trips).set({ alarmSet: true }).where(eq(trips.id, recentTrip.id));
+      await sendLinqMessage(chatId, `Got it. I'll text you at 5am with updated conditions for ${recentTrip.spotName}.`);
+    } else if (recentTrip?.alarmSet) {
+      await sendLinqMessage(chatId, `You're already set for a 5am update for ${recentTrip.spotName}.`);
+    } else {
+      await sendLinqMessage(chatId, `No recent trip found. Send me a dive spot and date first.`);
+    }
+
+    return NextResponse.json({ received: true });
+  }
+
+  if (text.trim() === "👍") {
+    const recentTrip = await db.query.trips.findFirst({
+      where: eq(trips.conversationId, conversation.id),
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+    });
+
+    if (recentTrip) {
+      await sendLinqMessage(chatId, `🤿 Full breakdown → ${appUrl}/report/${recentTrip.id}`);
     }
 
     return NextResponse.json({ received: true });
