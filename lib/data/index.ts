@@ -2,17 +2,15 @@ import {
   getMarineConditions,
   celsiusToFahrenheit,
   swellHeightFt,
-} from "./marine";
-import { getTideData } from "./tides";
-import { getRunoffData } from "./runoff";
+} from './marine';
+import { getTideData } from './tides';
+import { getRunoffData } from './runoff';
 
-import type { MarineConditions } from "./marine";
-import type { TideData } from "./tides";
-import type { RunoffData } from "./runoff";
+import type { MarineConditions } from './marine';
+import type { TideData, TidePrediction } from './tides';
+import type { RunoffData } from './runoff';
 
-export type { MarineConditions } from "./marine";
-export type { TideData, TidePrediction } from "./tides";
-export type { RunoffData } from "./runoff";
+export type { MarineConditions, TideData, TidePrediction, RunoffData };
 
 export interface ConditionsData {
   marine: MarineConditions;
@@ -23,7 +21,6 @@ export interface ConditionsData {
   fetchedAt: string;
 }
 
-// fetch all conditions data in parallel for a given location and date
 export async function fetchConditions(
   lat: number,
   lng: number,

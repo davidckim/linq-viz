@@ -1,27 +1,31 @@
-import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { NextRequest, NextResponse } from 'next/server';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { getRecentTrip } from '@/lib/db/queries';
 import {
   conversations,
   messages,
   trips,
   catches,
   alerts,
-} from "@/lib/db/schema";
+} from '@/lib/db/schema';
 import {
   verifyLinqWebhook,
   extractTextFromParts,
   sendLinqMessage,
-} from "@/lib/linq";
-import { processMessage } from "@/lib/agent";
+  startTypingIndicator,
+} from '@/lib/linq';
+import { processMessage } from '@/lib/agent';
+import { isAllowedPhone } from '@/lib/allowlist';
+import { formatReportMessage } from '@/lib/app-url';
 
 interface LinqMessagePayload {
-  event_type: "message.received";
+  event_type: 'message.received';
   event_id: string;
   created_at: string;
   data: {
     id: string;
-    direction: "inbound" | "outbound";
+    direction: 'inbound' | 'outbound';
     sender_handle: { handle: string; is_me: boolean };
     chat: { id: string; is_group: boolean; owner_handle: { handle: string } };
     parts: { type: string; value: string }[];
@@ -31,7 +35,7 @@ interface LinqMessagePayload {
 }
 
 interface LinqReactionPayload {
-  event_type: "reaction.added" | "reaction.removed";
+  event_type: 'reaction.added' | 'reaction.removed';
   event_id: string;
   created_at: string;
   data: {
@@ -39,14 +43,14 @@ interface LinqReactionPayload {
     message_id: string;
     part_index: number;
     reaction_type:
-      | "love"
-      | "like"
-      | "dislike"
-      | "laugh"
-      | "emphasize"
-      | "question"
-      | "custom"
-      | "sticker";
+      | 'love'
+      | 'like'
+      | 'dislike'
+      | 'laugh'
+      | 'emphasize'
+      | 'question'
+      | 'custom'
+      | 'sticker';
     custom_emoji: string | null;
     is_from_me: boolean;
     from: string;
@@ -63,33 +67,29 @@ export async function POST(req: NextRequest) {
   const rawBody = await req.text();
 
   const valid = verifyLinqWebhook(rawBody, {
-    "webhook-id": req.headers.get("webhook-id") ?? undefined,
-    "webhook-timestamp": req.headers.get("webhook-timestamp") ?? undefined,
-    "webhook-signature": req.headers.get("webhook-signature") ?? undefined,
+    'webhook-id': req.headers.get('webhook-id') ?? undefined,
+    'webhook-timestamp': req.headers.get('webhook-timestamp') ?? undefined,
+    'webhook-signature': req.headers.get('webhook-signature') ?? undefined,
   });
   if (!valid)
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
 
   let payload: LinqWebhookPayload;
   try {
     payload = JSON.parse(rawBody);
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
   if (
-    payload.event_type === "reaction.added" &&
-    payload.data.reaction_type === "like" &&
+    payload.event_type === 'reaction.added' &&
+    payload.data.reaction_type === 'like' &&
     !payload.data.is_from_me
   ) {
     const phoneNumber = payload.data.from;
     const chatId = payload.data.chat_id;
 
-    const allowedNumbers = (process.env.ALLOWED_PHONE_NUMBERS ?? "")
-      .split(",")
-      .map((n) => n.trim())
-      .filter(Boolean);
-    if (allowedNumbers.length > 0 && !allowedNumbers.includes(phoneNumber)) {
+    if (!isAllowedPhone(phoneNumber)) {
       return NextResponse.json({ received: true });
     }
 
@@ -98,18 +98,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (conversation) {
-      const recentTrip = await db.query.trips.findFirst({
-        where: eq(trips.conversationId, conversation.id),
-        orderBy: (t, { desc }) => [desc(t.createdAt)],
-      });
-
-      const appUrl = process.env.APP_URL ?? "https://linq-viz.vercel.app";
+      const recentTrip = await getRecentTrip(conversation.id);
 
       if (recentTrip) {
-        await sendLinqMessage(
-          chatId,
-          `🤿 Full breakdown → ${appUrl}/report/${recentTrip.id}`,
-        );
+        await sendLinqMessage(chatId, formatReportMessage(recentTrip.id));
       }
     }
 
@@ -117,8 +109,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (
-    payload.event_type !== "message.received" ||
-    payload.data.direction !== "inbound"
+    payload.event_type !== 'message.received' ||
+    payload.data.direction !== 'inbound'
   ) {
     return NextResponse.json({ received: true });
   }
@@ -128,11 +120,7 @@ export async function POST(req: NextRequest) {
   const chatId = payload.data.chat.id;
   const text = extractTextFromParts(payload.data.parts);
 
-  const allowedNumbers = (process.env.ALLOWED_PHONE_NUMBERS ?? "")
-    .split(",")
-    .map((n) => n.trim())
-    .filter(Boolean);
-  if (allowedNumbers.length > 0 && !allowedNumbers.includes(phoneNumber)) {
+  if (!isAllowedPhone(phoneNumber)) {
     return NextResponse.json({ received: true });
   }
 
@@ -158,39 +146,29 @@ export async function POST(req: NextRequest) {
   await db.insert(messages).values({
     conversationId: conversation.id,
     linqEventId: eventId,
-    direction: "inbound",
+    direction: 'inbound',
     body: text,
   });
 
-  const appUrl = process.env.APP_URL ?? "https://linq-viz.vercel.app";
   const normalized = text.toLowerCase().trim();
 
-  if (normalized === "deets") {
-    const recentTrip = await db.query.trips.findFirst({
-      where: eq(trips.conversationId, conversation.id),
-      orderBy: (t, { desc }) => [desc(t.createdAt)],
-    });
+  if (normalized === 'deets') {
+    const recentTrip = await getRecentTrip(conversation.id);
 
     if (recentTrip) {
-      await sendLinqMessage(
-        chatId,
-        `🤿 Full breakdown → ${appUrl}/report/${recentTrip.id}`,
-      );
+      await sendLinqMessage(chatId, formatReportMessage(recentTrip.id));
     } else {
       await sendLinqMessage(
         chatId,
-        `No recent trip found. Send me a dive spot and date first.`,
+        'No recent trip found. Send me a dive spot and date first.',
       );
     }
 
     return NextResponse.json({ received: true });
   }
 
-  if (normalized === "remind me") {
-    const recentTrip = await db.query.trips.findFirst({
-      where: eq(trips.conversationId, conversation.id),
-      orderBy: (t, { desc }) => [desc(t.createdAt)],
-    });
+  if (normalized === 'remind me') {
+    const recentTrip = await getRecentTrip(conversation.id);
 
     if (recentTrip && !recentTrip.alarmSet) {
       const fireAt = new Date(recentTrip.plannedDate);
@@ -198,7 +176,7 @@ export async function POST(req: NextRequest) {
 
       await db.insert(alerts).values({
         conversationId: conversation.id,
-        type: "morning_alarm",
+        type: 'morning_alarm',
         tripId: recentTrip.id,
         spotName: recentTrip.spotName,
         fireAt,
@@ -220,37 +198,39 @@ export async function POST(req: NextRequest) {
     } else {
       await sendLinqMessage(
         chatId,
-        `No recent trip found. Send me a dive spot and date first.`,
+        'No recent trip found. Send me a dive spot and date first.',
       );
     }
 
     return NextResponse.json({ received: true });
   }
+
+  await startTypingIndicator(chatId);
 
   let result;
   try {
     result = await processMessage(text);
   } catch (err) {
-    console.error("[agent] error:", err);
+    console.error('[agent] error:', err);
     try {
       await sendLinqMessage(
         chatId,
-        "Something went wrong on my end. Try again.",
+        'Something went wrong on my end. Try again.',
       );
     } catch (sendErr) {
-      console.error("[send] error:", sendErr);
+      console.error('[send] error:', sendErr);
     }
     return NextResponse.json({ received: true });
   }
 
-  if (result.intent === "trip_plan" && result.tripData) {
+  if (result.intent === 'trip_plan' && result.tripData) {
     const d = result.tripData;
     await db.insert(trips).values({
       conversationId: conversation.id,
       spotName: d.spotName,
       latitude: d.latitude,
       longitude: d.longitude,
-      plannedDate: d.plannedDate.toISOString().split("T")[0],
+      plannedDate: d.plannedDate.toISOString().split('T')[0],
       targetSpecies: d.targetSpecies ?? undefined,
       vizScore: d.vizScore,
       vizSummary: d.vizSummary,
@@ -258,7 +238,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  if (result.intent === "catch_log" && result.catchData) {
+  if (result.intent === 'catch_log' && result.catchData) {
     const c = result.catchData;
     await db.insert(catches).values({
       conversationId: conversation.id,
@@ -273,11 +253,11 @@ export async function POST(req: NextRequest) {
     await sendLinqMessage(chatId, result.replyText);
     await db.insert(messages).values({
       conversationId: conversation.id,
-      direction: "outbound",
+      direction: 'outbound',
       body: result.replyText,
     });
   } catch (err) {
-    console.error("[send] error:", err);
+    console.error('[send] error:', err);
   }
 
   return NextResponse.json({ received: true });

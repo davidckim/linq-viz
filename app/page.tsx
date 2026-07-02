@@ -1,21 +1,23 @@
-import QRCode from "qrcode";
+import QRCode from 'qrcode';
 
-const VIZ_NUMBER = process.env.LINQ_PHONE_NUMBER ?? "+16282894498";
+const VIZ_NUMBER = process.env.LINQ_PHONE_NUMBER;
+
 const VIDEO_URL =
-  "https://cdn.akamai.steamstatic.com/steamcommunity/public/images/items/1868140/2ca662e6359bf4e940c6be30ab6a0410f2ea6d7d.webm";
+  'https://cdn.akamai.steamstatic.com/steamcommunity/public/images/items/1868140/2ca662e6359bf4e940c6be30ab6a0410f2ea6d7d.webm';
+
+const smsBody = encodeURIComponent(
+  'Hey Viz, how are the diving conditions at Malaga Cove this Thursday?',
+);
+
+const smsUrl = `sms:${VIZ_NUMBER}?body=${smsBody}`;
+
+const qrDataUrl = await QRCode.toDataURL(smsUrl, {
+  width: 220,
+  margin: 2,
+  color: { dark: '#0a1628', light: '#f0f8ff' },
+});
 
 export default async function Home() {
-  const smsBody = encodeURIComponent(
-    "Hey Viz, how are the diving conditions at La Jolla Cove this Thursday?",
-  );
-  const smsUrl = `sms:${VIZ_NUMBER}?body=${smsBody}`;
-
-  const qrDataUrl = await QRCode.toDataURL(smsUrl, {
-    width: 220,
-    margin: 2,
-    color: { dark: "#0a1628", light: "#f0f8ff" },
-  });
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
       <video

@@ -1,3 +1,4 @@
+// found formula on stack overflow
 export function haversineDistanceMiles(
   lat1: number,
   lng1: number,

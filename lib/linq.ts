@@ -2,17 +2,21 @@ import crypto from 'crypto';
 
 export function verifyLinqWebhook(
   rawBody: string,
-  headers: { 'webhook-id'?: string; 'webhook-timestamp'?: string; 'webhook-signature'?: string }
+  headers: {
+    'webhook-id'?: string;
+    'webhook-timestamp'?: string;
+    'webhook-signature'?: string;
+  },
 ): boolean {
-  // skip verification in local dev when no signature headers are present
-  const hasSignatureHeaders = headers['webhook-id'] && headers['webhook-signature'];
+  const hasSignatureHeaders =
+    headers['webhook-id'] && headers['webhook-signature'];
   if (!hasSignatureHeaders && process.env.NODE_ENV === 'development') {
     return true;
   }
 
   const secret = process.env.LINQ_WEBHOOK_SECRET;
   if (!secret) {
-    console.warn('LINQ_WEBHOOK_SECRET not set — skipping verification');
+    console.warn('LINQ_WEBHOOK_SECRET not set');
     return true;
   }
 
@@ -29,22 +33,50 @@ export function verifyLinqWebhook(
     .update(signedContent)
     .digest('base64');
 
-  const expectedSignatures = signature.split(' ').map((s) => s.replace(/^v1,/, ''));
-  return expectedSignatures.some((sig) => sig === computed);
+  const expectedSignatures = signature
+    .split(' ')
+    .map((string) => string.replace(/^v1,/, ''));
+  return expectedSignatures.some((signature) => signature === computed);
 }
 
-export function extractTextFromParts(parts: { type: string; value: string }[]): string {
+export function extractTextFromParts(
+  parts: { type: string; value: string }[],
+): string {
   return parts
-    .filter((p) => p.type === 'text')
-    .map((p) => p.value)
+    .filter((part) => part.type === 'text')
+    .map((part) => part.value)
     .join(' ')
     .trim();
 }
 
-// Send a reply into an existing chat thread.
-// chatId comes from payload.data.chat.id on the inbound webhook.
-export async function sendLinqMessage(chatId: string, text: string): Promise<void> {
-  const apiKey = process.env.LINQ_API_KEY;
+const LINQ_API_BASE = 'https://api.linqapp.com/api/partner/v3';
+
+function getApiKey(): string | undefined {
+  return process.env.LINQ_API_KEY;
+}
+
+export async function startTypingIndicator(chatId: string): Promise<void> {
+  const apiKey = getApiKey();
+  if (!apiKey) return;
+
+  try {
+    const res = await fetch(`${LINQ_API_BASE}/chats/${chatId}/typing`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) {
+      console.warn(`[linq] typing indicator failed: ${res.status}`);
+    }
+  } catch (err) {
+    console.warn('[linq] typing indicator error:', err);
+  }
+}
+
+export async function sendLinqMessage(
+  chatId: string,
+  text: string,
+): Promise<void> {
+  const apiKey = getApiKey();
 
   if (!apiKey) {
     console.warn('LINQ_API_KEY not set — skipping send');
@@ -57,7 +89,7 @@ export async function sendLinqMessage(chatId: string, text: string): Promise<voi
   }
 
   // v3 API: POST /chats/{chatId}/messages with message.parts wrapper
-  const res = await fetch(`https://api.linqapp.com/api/partner/v3/chats/${chatId}/messages`, {
+  const res = await fetch(`${LINQ_API_BASE}/chats/${chatId}/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -31,16 +31,6 @@ export const messages = pgTable('messages', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-export const diveSpots = pgTable('dive_spots', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  conversationId: uuid('conversation_id').references(() => conversations.id).notNull(),
-  name: text('name').notNull(),
-  latitude: real('latitude').notNull(),
-  longitude: real('longitude').notNull(),
-  notes: text('notes'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
-
 export const trips = pgTable('trips', {
   id: uuid('id').primaryKey().defaultRandom(),
   conversationId: uuid('conversation_id').references(() => conversations.id).notNull(),

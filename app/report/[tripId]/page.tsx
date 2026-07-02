@@ -1,43 +1,68 @@
-import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { trips } from "@/lib/db/schema";
-import type { ConditionsData } from "@/lib/data/index";
-import { computeVizScore } from "@/lib/viz-score";
-import { Card, CardContent } from "@/components/ui/card";
-import { checkMlpa } from "@/lib/mlpa";
+import { notFound } from 'next/navigation';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { trips } from '@/lib/db/schema';
+import type { ConditionsData } from '@/lib/data/index';
+import { computeVizScore, factorIcon } from '@/lib/viz-score';
+import { Card, CardContent } from '@/components/ui/card';
+import { checkMlpa } from '@/lib/mlpa';
+import { getBestDiveWindow } from '@/lib/dive-window';
+import { cn } from '@/lib/utils';
 
 function degToCompass(deg: number) {
-  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
   return dirs[Math.round(deg / 45) % 8];
 }
 
-function toAmPm(hour: number) {
-  return new Date(2000, 0, 1, hour)
-    .toLocaleTimeString("en-US", { hour: "numeric", hour12: true })
-    .toLowerCase()
-    .replace(" ", "");
-}
+const SCORE_STYLES = [
+  { min: 8, text: 'text-emerald-400', glow: 'drop-shadow-[0_0_20px_rgba(52,211,153,0.6)]' },
+  { min: 6, text: 'text-yellow-400', glow: 'drop-shadow-[0_0_20px_rgba(250,204,21,0.5)]' },
+  { min: 4, text: 'text-orange-400', glow: 'drop-shadow-[0_0_20px_rgba(251,146,60,0.5)]' },
+  { min: 0, text: 'text-red-400', glow: 'drop-shadow-[0_0_20px_rgba(251,146,60,0.5)]' },
+] as const;
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="font-pixel text-[7px] text-white/30 tracking-widest px-1">
-      {children}
-    </p>
-  );
+function getScoreStyle(score: number) {
+  return SCORE_STYLES.find((style) => score >= style.min) ?? SCORE_STYLES[SCORE_STYLES.length - 1];
 }
 
 const runoffBadgeClass: Record<string, string> = {
-  normal: "bg-emerald-500/20 text-emerald-400",
-  elevated: "bg-yellow-500/20 text-yellow-400",
-  high: "bg-red-500/20 text-red-400",
+  normal: 'bg-emerald-500/20 text-emerald-400',
+  elevated: 'bg-yellow-500/20 text-yellow-400',
+  high: 'bg-red-500/20 text-red-400',
 };
 
-const factorIcon: Record<string, string> = {
-  positive: "✅",
-  negative: "❌",
-  neutral: "➖",
-};
+function ReportSection({
+  label,
+  children,
+}: {
+  label: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="report-section">
+      <p className="text-pixel-section">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+function ListRow({
+  border,
+  className,
+  children,
+}: {
+  border?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn('px-5 py-3', border && 'border-b border-white/5', className)}
+    >
+      {children}
+    </div>
+  );
+}
 
 function StatCard({
   label,
@@ -51,11 +76,9 @@ function StatCard({
   return (
     <Card>
       <CardContent className="flex flex-col gap-2 pt-4">
-        <p className="font-pixel text-[7px] text-white/40 tracking-widest">
-          {label}
-        </p>
+        <p className="text-pixel-label">{label}</p>
         <p className="font-barlow text-xl font-semibold text-white">{value}</p>
-        {sub && <p className="font-pixel text-[7px] text-white/40">{sub}</p>}
+        {sub && <p className="text-pixel-label">{sub}</p>}
       </CardContent>
     </Card>
   );
@@ -90,64 +113,44 @@ export default async function ReportPage({
 
   const viz = computeVizScore(conditions);
   const { marine, tides, runoff } = conditions;
+  const scoreStyle = getScoreStyle(viz.score);
 
-  const dateLabel = new Date(trip.plannedDate + "T12:00:00").toLocaleDateString(
-    "en-US",
+  const dateLabel = new Date(trip.plannedDate + 'T12:00:00').toLocaleDateString(
+    'en-US',
     {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
     },
   );
 
-  function scoreColor(s: number) {
-    if (s >= 8) return "text-emerald-400";
-    if (s >= 6) return "text-yellow-400";
-    if (s >= 4) return "text-orange-400";
-    return "text-red-400";
-  }
-
-  function scoreGlow(s: number) {
-    if (s >= 8) return "drop-shadow-[0_0_20px_rgba(52,211,153,0.6)]";
-    if (s >= 6) return "drop-shadow-[0_0_20px_rgba(250,204,21,0.5)]";
-    return "drop-shadow-[0_0_20px_rgba(251,146,60,0.5)]";
-  }
-
-  const bestWindow = (() => {
-    const low = tides.nextLow;
-    if (!low) return "6am–9am";
-    const lowHour = new Date(low.time).getHours();
-    const start = Math.max(6, lowHour - 1);
-    const end = Math.min(lowHour + 2, 11);
-    return `${toAmPm(start)}–${toAmPm(end)}`;
-  })();
-
+  const bestWindow = getBestDiveWindow(tides.nextLow);
   const mlpaWarning = checkMlpa(trip.latitude, trip.longitude);
 
   const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${trip.longitude - 0.06},${trip.latitude - 0.04},${trip.longitude + 0.06},${trip.latitude + 0.04}&layer=mapnik&marker=${trip.latitude},${trip.longitude}`;
 
   return (
     <div className="min-h-screen pb-16">
-      <div className="mx-auto max-w-md px-4 pt-10 flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <p className="font-pixel text-[8px] text-white/30 tracking-widest">
-            VIZ REPORT
-          </p>
+      <div className="report-shell">
+        <div className="report-section">
+          <p className="text-pixel-overline">VIZ REPORT</p>
           <h1 className="font-pixel text-lg text-white leading-relaxed">
             {trip.spotName.toUpperCase()}
           </h1>
-          <p className="font-pixel text-[8px] text-white/40">
-            {dateLabel.toUpperCase()}
-          </p>
+          <p className="text-pixel-caption">{dateLabel.toUpperCase()}</p>
         </div>
 
         <Card>
           <CardContent className="flex items-center justify-between pt-5 pb-5">
             <div className="flex flex-col gap-1">
-              <p className="font-pixel text-[7px] text-white/40">VIZ SCORE</p>
+              <p className="text-pixel-label">VIZ SCORE</p>
               <div className="flex items-end gap-1">
                 <span
-                  className={`font-pixel text-6xl ${scoreColor(viz.score)} ${scoreGlow(viz.score)}`}
+                  className={cn(
+                    'font-pixel text-6xl',
+                    scoreStyle.text,
+                    scoreStyle.glow,
+                  )}
                 >
                   {viz.score}
                 </span>
@@ -157,10 +160,10 @@ export default async function ReportPage({
               </div>
             </div>
             <div className="text-right flex flex-col gap-2">
-              <p className={`font-pixel text-sm ${scoreColor(viz.score)}`}>
+              <p className={cn('font-pixel text-sm', scoreStyle.text)}>
                 {viz.label.toUpperCase()}
               </p>
-              <p className="font-pixel text-[8px] text-white/40">
+              <p className="text-pixel-caption">
                 EST. {viz.estVisibilityFt.toUpperCase()} VIZ
               </p>
             </div>
@@ -176,8 +179,7 @@ export default async function ReportPage({
           />
         </Card>
 
-        <div className="flex flex-col gap-2">
-          <SectionLabel>KEY CONDITIONS</SectionLabel>
+        <ReportSection label="KEY CONDITIONS">
           <div className="grid grid-cols-2 gap-3">
             <StatCard label="WATER TEMP" value={`${conditions.seaTempF}°F`} />
             <StatCard label="EST. VISIBILITY" value={viz.estVisibilityFt} />
@@ -185,10 +187,9 @@ export default async function ReportPage({
               <StatCard label="BEST DIVE WINDOW" value={bestWindow} />
             </div>
           </div>
-        </div>
+        </ReportSection>
 
-        <div className="flex flex-col gap-2">
-          <SectionLabel>SWELL &amp; WIND</SectionLabel>
+        <ReportSection label="SWELL &amp; WIND">
           <div className="grid grid-cols-2 gap-3">
             <StatCard
               label="SWELL"
@@ -201,47 +202,43 @@ export default async function ReportPage({
               sub={degToCompass(marine.windDirectionDeg)}
             />
           </div>
-        </div>
+        </ReportSection>
 
-        <div className="flex flex-col gap-2">
-          <SectionLabel>TIDES · {tides.stationName.toUpperCase()}</SectionLabel>
+        <ReportSection label={`TIDES · ${tides.stationName.toUpperCase()}`}>
           <Card>
             <CardContent className="p-0">
-              {tides.predictions.map((p, i) => (
-                <div
-                  key={i}
-                  className={`flex items-center justify-between px-5 py-3 ${
-                    i < tides.predictions.length - 1
-                      ? "border-b border-white/5"
-                      : ""
-                  }`}
+              {tides.predictions.map((prediction, index) => (
+                <ListRow
+                  key={prediction.time}
+                  border={index < tides.predictions.length - 1}
+                  className="flex items-center justify-between"
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-lg">
-                      {p.type === "L" ? "↓" : "↑"}
+                      {prediction.type === 'L' ? '↓' : '↑'}
                     </span>
-                    <span className="font-pixel text-[7px] text-white/50">
-                      {p.type === "L" ? "LOW" : "HIGH"}
+                    <span className="text-pixel-meta">
+                      {prediction.type === 'L' ? 'LOW' : 'HIGH'}
                     </span>
                   </div>
                   <span className="font-barlow text-sm text-white/80">
-                    {p.time.split(" ")[1]}
+                    {prediction.time.split(' ')[1]}
                   </span>
                   <span
-                    className={`font-barlow font-semibold text-sm ${
-                      p.type === "L" ? "text-sky-400" : "text-amber-400"
-                    }`}
+                    className={cn(
+                      'font-barlow font-semibold text-sm',
+                      prediction.type === 'L' ? 'text-sky-400' : 'text-amber-400',
+                    )}
                   >
-                    {p.heightFt.toFixed(1)}ft
+                    {prediction.heightFt.toFixed(1)}ft
                   </span>
-                </div>
+                </ListRow>
               ))}
             </CardContent>
           </Card>
-        </div>
+        </ReportSection>
 
-        <div className="flex flex-col gap-2">
-          <SectionLabel>RIVER RUNOFF</SectionLabel>
+        <ReportSection label="RIVER RUNOFF">
           <Card>
             <CardContent className="flex flex-col gap-3 pt-4">
               <div className="flex items-center justify-between">
@@ -249,14 +246,16 @@ export default async function ReportPage({
                   {runoff.siteName}
                 </p>
                 <span
-                  className={`font-pixel text-[7px] px-2 py-1 rounded-full ${runoffBadgeClass[runoff.status] ?? "bg-white/10 text-white/40"}`}
+                  className={cn(
+                    'text-pixel-label rounded-full px-2 py-1',
+                    runoffBadgeClass[runoff.status] ??
+                      'bg-white/10 text-white/40',
+                  )}
                 >
                   {runoff.status.toUpperCase()}
                 </span>
               </div>
-              <p className="font-barlow text-xs text-white/50 leading-relaxed">
-                {runoff.impactOnViz}
-              </p>
+              <p className="text-barlow-muted">{runoff.impactOnViz}</p>
               {runoff.currentCfs > 0 && (
                 <p className="font-pixel text-[7px] text-white/30">
                   {runoff.currentCfs} CFS
@@ -264,39 +263,34 @@ export default async function ReportPage({
               )}
             </CardContent>
           </Card>
-        </div>
+        </ReportSection>
 
-        <div className="flex flex-col gap-2">
-          <SectionLabel>MLPA STATUS</SectionLabel>
+        <ReportSection label="MLPA STATUS">
           <Card>
             <CardContent className="pt-4">
-              <p className="font-barlow text-sm leading-relaxed text-white/80">
-                {mlpaWarning}
-              </p>
+              <p className="text-barlow-body">{mlpaWarning}</p>
             </CardContent>
           </Card>
-        </div>
+        </ReportSection>
 
-        <div className="flex flex-col gap-2">
-          <SectionLabel>SCORE BREAKDOWN</SectionLabel>
+        <ReportSection label="SCORE BREAKDOWN">
           <Card>
             <CardContent className="p-0">
-              {viz.factors.map((f, i) => (
-                <div
-                  key={i}
-                  className={`flex items-start gap-3 px-5 py-3 ${
-                    i < viz.factors.length - 1 ? "border-b border-white/5" : ""
-                  }`}
+              {viz.factors.map((factor, index) => (
+                <ListRow
+                  key={factor.name}
+                  border={index < viz.factors.length - 1}
+                  className="flex items-start gap-3"
                 >
-                  <span className="text-base mt-0.5">{factorIcon[f.impact]}</span>
+                  <span className="text-base mt-0.5">{factorIcon(factor.impact)}</span>
                   <p className="font-barlow text-sm text-white/70 leading-snug">
-                    {f.note}
+                    {factor.note}
                   </p>
-                </div>
+                </ListRow>
               ))}
             </CardContent>
           </Card>
-        </div>
+        </ReportSection>
       </div>
     </div>
   );

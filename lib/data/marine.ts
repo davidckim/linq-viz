@@ -30,32 +30,32 @@ export async function getMarineConditions(
   lng: number,
   targetDate: Date,
 ): Promise<MarineConditions> {
-  const dateStr = targetDate.toISOString().split("T")[0];
+  const dateStr = targetDate.toISOString().split('T')[0];
 
-  const url = new URL("https://marine-api.open-meteo.com/v1/marine");
-  url.searchParams.set("latitude", lat.toString());
-  url.searchParams.set("longitude", lng.toString());
+  const url = new URL('https://marine-api.open-meteo.com/v1/marine');
+  url.searchParams.set('latitude', lat.toString());
+  url.searchParams.set('longitude', lng.toString());
   url.searchParams.set(
-    "hourly",
+    'hourly',
     [
-      "wave_height",
-      "wave_period",
-      "wave_direction",
-      "sea_surface_temperature",
-    ].join(","),
+      'wave_height',
+      'wave_period',
+      'wave_direction',
+      'sea_surface_temperature',
+    ].join(','),
   );
-  url.searchParams.set("wind_speed_unit", "kn");
-  url.searchParams.set("start_date", dateStr);
-  url.searchParams.set("end_date", dateStr);
+  url.searchParams.set('wind_speed_unit', 'kn');
+  url.searchParams.set('start_date', dateStr);
+  url.searchParams.set('end_date', dateStr);
 
   // wind comes from a separate endpoint - marine API doesn't include it
-  const windUrl = new URL("https://api.open-meteo.com/v1/forecast");
-  windUrl.searchParams.set("latitude", lat.toString());
-  windUrl.searchParams.set("longitude", lng.toString());
-  windUrl.searchParams.set("hourly", "wind_speed_10m,wind_direction_10m");
-  windUrl.searchParams.set("wind_speed_unit", "kn");
-  windUrl.searchParams.set("start_date", dateStr);
-  windUrl.searchParams.set("end_date", dateStr);
+  const windUrl = new URL('https://api.open-meteo.com/v1/forecast');
+  windUrl.searchParams.set('latitude', lat.toString());
+  windUrl.searchParams.set('longitude', lng.toString());
+  windUrl.searchParams.set('hourly', 'wind_speed_10m,wind_direction_10m');
+  windUrl.searchParams.set('wind_speed_unit', 'kn');
+  windUrl.searchParams.set('start_date', dateStr);
+  windUrl.searchParams.set('end_date', dateStr);
 
   const [marineRes, windRes] = await Promise.all([
     fetch(url.toString()),
@@ -63,7 +63,7 @@ export async function getMarineConditions(
   ]);
 
   if (!marineRes.ok || !windRes.ok) {
-    throw new Error("Failed to fetch marine/wind data from Open-Meteo");
+    throw new Error('Failed to fetch marine/wind data from Open-Meteo');
   }
 
   const marine = await marineRes.json();

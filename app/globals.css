@@ -136,3 +136,39 @@
 @utility font-barlow {
   font-family: var(--font-barlow);
 }
+
+@utility text-pixel-label {
+  @apply font-pixel text-[7px] tracking-widest text-white/40;
+}
+
+@utility text-pixel-section {
+  @apply font-pixel text-[7px] tracking-widest text-white/30 px-1;
+}
+
+@utility text-pixel-caption {
+  @apply font-pixel text-[8px] text-white/40;
+}
+
+@utility text-pixel-overline {
+  @apply font-pixel text-[8px] tracking-widest text-white/30;
+}
+
+@utility text-pixel-meta {
+  @apply font-pixel text-[7px] text-white/50;
+}
+
+@utility text-barlow-body {
+  @apply font-barlow text-sm leading-relaxed text-white/80;
+}
+
+@utility text-barlow-muted {
+  @apply font-barlow text-xs leading-relaxed text-white/50;
+}
+
+@utility report-section {
+  @apply flex flex-col gap-2;
+}
+
+@utility report-shell {
+  @apply mx-auto flex max-w-md flex-col gap-5 px-4 pt-10;
+}
