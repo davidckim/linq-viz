@@ -52,7 +52,8 @@ interface LinqReactionPayload {
       | 'sticker';
     custom_emoji: string | null;
     is_from_me: boolean;
-    from: string;
+    from_handle: { handle: string };
+    from?: string;
   };
 }
 
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
     payload.data.reaction_type === 'like' &&
     !payload.data.is_from_me
   ) {
-    const phoneNumber = payload.data.from;
+    const phoneNumber = payload.data.from_handle.handle;
     const chatId = payload.data.chat_id;
 
     const conversation = await db.query.conversations.findFirst({

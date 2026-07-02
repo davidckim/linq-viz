@@ -26,17 +26,24 @@ export function verifyLinqWebhook(
 
   if (!msgId || !timestamp || !signature) return false;
 
+  const sentAt = parseInt(timestamp, 10);
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+  const fiveMinutes = 300;
+  if (isNaN(sentAt) || Math.abs(nowInSeconds - sentAt) > fiveMinutes) return false;
+
   const signedContent = `${msgId}.${timestamp}.${rawBody}`;
   const secretBytes = Buffer.from(secret.replace(/^whsec_/, ''), 'base64');
-  const computed = crypto
+  const expectedSignature = crypto
     .createHmac('sha256', secretBytes)
     .update(signedContent)
     .digest('base64');
 
-  const expectedSignatures = signature
-    .split(' ')
-    .map((string) => string.replace(/^v1,/, ''));
-  return expectedSignatures.some((signature) => signature === computed);
+  const expectedBuf = Buffer.from(expectedSignature);
+  return signature.split(' ').some((sig) => {
+    if (!sig.startsWith('v1,')) return false;
+    const receivedBuf = Buffer.from(sig.slice(3));
+    return expectedBuf.length === receivedBuf.length && crypto.timingSafeEqual(expectedBuf, receivedBuf);
+  });
 }
 
 export function extractTextFromParts(
