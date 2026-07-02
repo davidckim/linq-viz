@@ -29,7 +29,8 @@ export function verifyLinqWebhook(
   const sentAt = parseInt(timestamp, 10);
   const nowInSeconds = Math.floor(Date.now() / 1000);
   const fiveMinutes = 300;
-  if (isNaN(sentAt) || Math.abs(nowInSeconds - sentAt) > fiveMinutes) return false;
+  if (isNaN(sentAt) || Math.abs(nowInSeconds - sentAt) > fiveMinutes)
+    return false;
 
   const signedContent = `${msgId}.${timestamp}.${rawBody}`;
   const secretBytes = Buffer.from(secret.replace(/^whsec_/, ''), 'base64');
@@ -42,7 +43,10 @@ export function verifyLinqWebhook(
   return signature.split(' ').some((sig) => {
     if (!sig.startsWith('v1,')) return false;
     const receivedBuf = Buffer.from(sig.slice(3));
-    return expectedBuf.length === receivedBuf.length && crypto.timingSafeEqual(expectedBuf, receivedBuf);
+    return (
+      expectedBuf.length === receivedBuf.length &&
+      crypto.timingSafeEqual(expectedBuf, receivedBuf)
+    );
   });
 }
 
@@ -72,10 +76,10 @@ export async function startTypingIndicator(chatId: string): Promise<void> {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
     if (!res.ok) {
-      console.warn(`[linq] typing indicator failed: ${res.status}`);
+      console.warn(`Linq: typing indicator failed: ${res.status}`);
     }
   } catch (err) {
-    console.warn('[linq] typing indicator error:', err);
+    console.warn('Linq: typing indicator error:', err);
   }
 }
 
@@ -91,7 +95,7 @@ export async function sendLinqMessage(
   }
 
   if (!text || !text.trim()) {
-    console.warn('[linq] skipping send — empty message');
+    console.warn('Linq: skipping send — empty message');
     return;
   }
 

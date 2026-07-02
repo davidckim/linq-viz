@@ -33,7 +33,7 @@ npm run db:push
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) for the landing page. Point your Linq webhook at your deployed URL (e.g. `https://your-app.vercel.app/api/webhook`), or use ngrok to tunnel local dev to `/api/webhook`.
+Open [http://localhost:3000](http://localhost:3000) for the landing page. Point your Linq webhook at your deployed URL, or use ngrok to tunnel local dev to `/api/webhook`.
 
 ### Environment variables
 
@@ -72,6 +72,6 @@ npm run db:studio    # Drizzle Studio
 ## Caveats
 
 - **SoCal only** for accurate runoff. USGS gauges are mapped for Southern California rivers. Marine and tide data work elsewhere, but runoff won't.
-- **Viz score is a heuristic**, not validated against real dive logs. Good for comparing days.
+- **Viz score is a heuristic**, not validated against real dive logs. It is good for comparing days.
 
 Built as a technical challenge demo for Linq.

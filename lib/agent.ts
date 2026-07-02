@@ -118,7 +118,7 @@ export interface AgentResult {
 export async function processMessage(
   userMessage: string,
 ): Promise<AgentResult> {
-  console.log('[agent] processing:', userMessage);
+  console.log('Agent: processing:', userMessage);
 
   // parse intent
   // strictJsonSchema: false — Zod v4 emits anyOf for nullable fields which OpenAI's
@@ -179,7 +179,7 @@ For greetings like "hey", "hello", "hey viz", "hi" — set type to "greeting".`,
       'Reply "remind me" for 5am update',
     ].join('\n');
 
-    console.log('[agent] reply:', replyText.slice(0, 100));
+    console.log('Agent: reply:', replyText.slice(0, 100));
 
     return {
       intent: 'trip_plan',

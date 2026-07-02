@@ -211,14 +211,14 @@ export async function POST(req: NextRequest) {
   try {
     result = await processMessage(text);
   } catch (err) {
-    console.error('[agent] error:', err);
+    console.error('Agent: error:', err);
     try {
       await sendLinqMessage(
         chatId,
         'Something went wrong on my end. Try again.',
       );
     } catch (sendErr) {
-      console.error('[send] error:', sendErr);
+      console.error('error:', sendErr);
     }
     return NextResponse.json({ received: true });
   }
@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
       body: result.replyText,
     });
   } catch (err) {
-    console.error('[send] error:', err);
+    console.error('error:', err);
   }
 
   return NextResponse.json({ received: true });
