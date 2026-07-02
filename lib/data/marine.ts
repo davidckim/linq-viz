@@ -2,6 +2,8 @@
 // https://open-meteo.com/en/docs/marine-weather-api
 // I picked this over Stormglass because it's actually free (no trial BS)
 
+import { DATA_ENDPOINTS } from './endpoints';
+
 export interface MarineConditions {
   swellHeightM: number;
   swellPeriodS: number;
@@ -32,7 +34,7 @@ export async function getMarineConditions(
 ): Promise<MarineConditions> {
   const dateStr = targetDate.toISOString().split('T')[0];
 
-  const url = new URL('https://marine-api.open-meteo.com/v1/marine');
+  const url = new URL(DATA_ENDPOINTS.openMeteoMarine);
   url.searchParams.set('latitude', lat.toString());
   url.searchParams.set('longitude', lng.toString());
   url.searchParams.set(
@@ -49,7 +51,7 @@ export async function getMarineConditions(
   url.searchParams.set('end_date', dateStr);
 
   // wind comes from a separate endpoint - marine API doesn't include it
-  const windUrl = new URL('https://api.open-meteo.com/v1/forecast');
+  const windUrl = new URL(DATA_ENDPOINTS.openMeteoForecast);
   windUrl.searchParams.set('latitude', lat.toString());
   windUrl.searchParams.set('longitude', lng.toString());
   windUrl.searchParams.set('hourly', 'wind_speed_10m,wind_direction_10m');

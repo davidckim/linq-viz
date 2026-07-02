@@ -3,6 +3,7 @@
 // tried a few options, this is the most reliable for SoCal
 
 import { haversineDistanceMiles } from './geo';
+import { DATA_ENDPOINTS } from './endpoints';
 
 export interface TidePrediction {
   time: string;
@@ -50,9 +51,7 @@ export async function getTideData(
   const station = nearestStation(lat, lng);
   const dateStr = targetDate.toISOString().split('T')[0].replace(/-/g, '');
 
-  const url = new URL(
-    'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter',
-  );
+  const url = new URL(DATA_ENDPOINTS.noaaTides);
   url.searchParams.set('begin_date', dateStr);
   url.searchParams.set('end_date', dateStr);
   url.searchParams.set('station', station.id);

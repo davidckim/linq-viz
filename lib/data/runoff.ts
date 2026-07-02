@@ -7,6 +7,7 @@
 // Nobody else is pulling this data for dive planning.
 
 import { haversineDistanceMiles } from './geo';
+import { DATA_ENDPOINTS } from './endpoints';
 
 export interface RunoffData {
   siteName: string;
@@ -83,7 +84,7 @@ export async function getRunoffData(
 ): Promise<RunoffData> {
   const gauge = nearestGauge(lat, lng);
 
-  const url = new URL('https://waterservices.usgs.gov/nwis/iv/');
+  const url = new URL(DATA_ENDPOINTS.usgsStreamflow);
   url.searchParams.set('format', 'json');
   url.searchParams.set('sites', gauge.siteCode);
   url.searchParams.set('parameterCd', '00060');
