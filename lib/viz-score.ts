@@ -95,13 +95,15 @@ export function computeVizScore(conditions: ConditionsData): VizScore {
   // high discharge after rain will tank viz for days
   const runoff = conditions.runoff;
   if (runoff.status === 'normal') {
-    factors.push({ name: 'Runoff', impact: 'positive', note: `${runoff.siteName} discharge normal — no sediment plume` });
+    factors.push({ name: 'Runoff', impact: 'positive', note: `Runoff (${runoff.siteName}) — clean` });
   } else if (runoff.status === 'elevated') {
     score -= 2;
-    factors.push({ name: 'Runoff', impact: 'negative', note: `${runoff.siteName} elevated (${Math.round(runoff.currentCfs)} cfs) — some murk near river mouth` });
+    factors.push({ name: 'Runoff', impact: 'negative', note: `Runoff (${runoff.siteName}) — elevated, murky water likely` });
   } else if (runoff.status === 'high') {
     score -= 4;
-    factors.push({ name: 'Runoff', impact: 'negative', note: `${runoff.siteName} high discharge (${Math.round(runoff.currentCfs)} cfs) — significant murk, avoid area` });
+    factors.push({ name: 'Runoff', impact: 'negative', note: `Runoff (${runoff.siteName}) — high discharge, avoid area` });
+  } else {
+    factors.push({ name: 'Runoff', impact: 'neutral', note: `Runoff — no gauge data for this area` });
   }
 
   // --- Tide ---
