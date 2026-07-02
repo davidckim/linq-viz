@@ -37,14 +37,14 @@ Open [http://localhost:3000](http://localhost:3000) for the landing page. Point 
 
 ### Environment variables
 
-| Variable                | What it's for                                                    |
-| ----------------------- | ---------------------------------------------------------------- |
-| `DATABASE_URL`          | Neon Postgres connection string                                  |
-| `OPENAI_API_KEY`        | Intent parsing and geocoding                                     |
-| `LINQ_API_KEY`          | Sending replies                                                  |
-| `LINQ_WEBHOOK_SECRET`   | Verifying inbound webhooks                                       |
-| `LINQ_PHONE_NUMBER`     | Shown on the landing page / QR code                              |
-| `APP_URL`               | Base URL for dashboard links (defaults to production)            |
+| Variable              | What it's for                                         |
+| --------------------- | ----------------------------------------------------- |
+| `DATABASE_URL`        | Neon Postgres connection string                       |
+| `OPENAI_API_KEY`      | Intent parsing and geocoding                          |
+| `LINQ_API_KEY`        | Sending replies                                       |
+| `LINQ_WEBHOOK_SECRET` | Verifying inbound webhooks                            |
+| `LINQ_PHONE_NUMBER`   | Shown on the landing page / QR code                   |
+| `APP_URL`             | Base URL for dashboard links (defaults to production) |
 
 ## Project layout
 
@@ -72,6 +72,6 @@ npm run db:studio    # Drizzle Studio
 ## Caveats
 
 - **SoCal only** for accurate runoff. USGS gauges are mapped for Southern California rivers. Marine and tide data work elsewhere, but runoff won't.
-- **Viz score is a heuristic**, not validated against real dive logs. Good for comparing days, not gospel.
+- **Viz score is a heuristic**, not validated against real dive logs. Good for comparing days.
 
 Built as a technical challenge demo for Linq.
