@@ -171,27 +171,30 @@ For regulation questions or general diving questions, set type to "question" and
       day: "numeric",
     });
 
-    // best window: center on low tide ±1.5hrs, but cap start at 6am
     const bestWindow = (() => {
       const low = conditions.tides.nextLow;
-      if (!low) return 'dawn–9am';
+      if (!low) return "dawn–9am";
       const lowHour = new Date(low.time).getHours();
       const start = Math.max(6, lowHour - 1);
       const end = Math.min(lowHour + 2, 11); // cap at 11am
-      const fmt = (h: number) => `${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}`;
+      const fmt = (h: number) =>
+        `${h > 12 ? h - 12 : h}${h >= 12 ? "pm" : "am"}`;
       return `${fmt(start)}–${fmt(end)}`;
     })();
 
     const tideLabel = conditions.tides.nextLow
       ? `Low tide ${new Date(conditions.tides.nextLow.time).getHours()}am ✓`
-      : '';
+      : "";
 
     // show each negative factor, collapse all positives into one line
     const negatives = viz.factors
-      .filter(f => f.impact === 'negative')
-      .map(f => `✗ ${f.note}`);
-    const positiveCount = viz.factors.filter(f => f.impact === 'positive').length;
-    const positivesSummary = positiveCount > 0 ? `✓ Everything else looks clean` : '';
+      .filter((f) => f.impact === "negative")
+      .map((f) => `✗ ${f.note}`);
+    const positiveCount = viz.factors.filter(
+      (f) => f.impact === "positive",
+    ).length;
+    const positivesSummary =
+      positiveCount > 0 ? `✓ Everything else looks clean` : "";
 
     const replyText = [
       `${geo.displayName} · ${dateLabel}`,
