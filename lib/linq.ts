@@ -1,5 +1,8 @@
 import crypto from 'crypto';
 
+// manual implementation of Linq's Standard Webhooks verification
+// could use client.webhooks.unwrap() from @linqapp/sdk but did it
+// by hand to understand the verification logic
 export function verifyLinqWebhook(
   rawBody: string,
   headers: {
