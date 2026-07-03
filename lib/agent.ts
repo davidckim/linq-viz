@@ -37,7 +37,7 @@ type Intent = z.infer<typeof IntentSchema>;
 const GeoSchema = z.object({
   latitude: z.number(),
   longitude: z.number(),
-  displayName: z.string(), // cleaned up name like "Malibu, CA"
+  displayName: z.string(),
 });
 
 async function geocodeLocation(location: string) {
@@ -197,7 +197,6 @@ For greetings like "hey", "hello", "hey viz", "hi" — set type to "greeting".`,
     };
   }
 
-  // catch logging flow
   if (intent.type === 'catch_log' && intent.species != null) {
     let legalityMsg = '';
     let isLegal: boolean | null = null;
@@ -247,7 +246,6 @@ For greetings like "hey", "hello", "hey viz", "hi" — set type to "greeting".`,
     };
   }
 
-  // question or fallback
   return {
     intent: intent.type,
     replyText:
